@@ -1,0 +1,28 @@
+# Entorno y secretos (nunca versionar)
+.env
+.env.local
+
+# Dependencias y caches
+api/vendor/
+web/node_modules/
+admin/node_modules/
+web/dist/
+admin/dist/
+
+# Uploads y logs locales
+api/storage/uploads/*
+!api/storage/uploads/.gitkeep
+api/storage/logs/*
+!api/storage/logs/.gitkeep
+
+# IDE / SO
+.idea/
+.vscode/
+*.swp
+Thumbs.db
+.DS_Store
+
+# Cobertura / PHPUnit
+api/coverage/
+api/.phpunit.cache/
+api/.phpunit.result.cache

@@ -1,0 +1,1470 @@
+openapi: 3.0.3
+info:
+  title: API Web pública IES Ramón Arcas
+  version: 1.0.0
+  description: |
+    API REST JSON bajo `/api/v1`. Lectura pública + backoffice con sesión cookie y CSRF.
+    Independiente de la intranet (otra BD y otra sesión).
+servers:
+  - url: http://localhost:8088
+    description: Docker local
+tags:
+  - name: Salud
+  - name: Auth
+  - name: Configuracion
+  - name: Navegacion
+  - name: Noticias
+  - name: Avisos
+  - name: Ensenanzas
+  - name: Optativas
+  - name: Departamentos
+  - name: Organizacion
+  - name: Programas
+  - name: Eventos
+  - name: Documentos
+  - name: Servicios
+  - name: Contacto
+  - name: Admin
+paths:
+  /health:
+    get:
+      tags: [Salud]
+      summary: Salud del servicio
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Health'
+        '503':
+          description: BD no disponible
+  /api/v1/health:
+    get:
+      tags: [Salud]
+      summary: Salud del servicio (prefijo API)
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Health'
+
+  /api/v1/admin/csrf:
+    get:
+      tags: [Auth]
+      summary: Obtener token CSRF (inicia cookie de sesión)
+      responses:
+        '200':
+          description: Token
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  csrf_token: { type: string }
+
+  /api/v1/admin/login:
+    post:
+      tags: [Auth]
+      summary: Iniciar sesión (requiere CSRF)
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string }
+      responses:
+        '200':
+          description: Sesión iniciada
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/Error'
+
+  /api/v1/admin/logout:
+    post:
+      tags: [Auth]
+      summary: Cerrar sesión
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+      responses:
+        '204':
+          description: Sin contenido
+        '401':
+          $ref: '#/components/responses/Error'
+
+  /api/v1/admin/me:
+    get:
+      tags: [Auth]
+      summary: Usuario actual
+      security: [{ cookieAuth: [] }]
+      responses:
+        '200':
+          description: Usuario y CSRF
+        '401':
+          $ref: '#/components/responses/Error'
+    patch:
+      tags: [Auth]
+      summary: Cambiar contraseña propia
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [password_actual, password_nueva]
+              properties:
+                password_actual: { type: string }
+                password_nueva: { type: string, minLength: 10 }
+      responses:
+        '200':
+          description: OK
+        '422':
+          $ref: '#/components/responses/Error'
+
+  /api/v1/admin/usuarios:
+    get:
+      tags: [Admin]
+      summary: Listar usuarios
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Listado paginado
+        '403':
+          $ref: '#/components/responses/Error'
+    post:
+      tags: [Admin]
+      summary: Crear usuario
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, nombre, rol, password]
+              properties:
+                email: { type: string }
+                nombre: { type: string }
+                rol: { type: string, enum: [admin, editor, secretaria] }
+                password: { type: string, minLength: 10 }
+      responses:
+        '201':
+          description: Creado
+        '409':
+          $ref: '#/components/responses/Error'
+
+  /api/v1/admin/usuarios/{id}:
+    patch:
+      tags: [Admin]
+      summary: Actualizar usuario (rol, activo, password)
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - $ref: '#/components/parameters/CsrfHeader'
+      responses:
+        '200':
+          description: OK
+
+  /api/v1/configuracion:
+    get:
+      tags: [Configuracion]
+      summary: Configuración pública (solo claves publica=1)
+      responses:
+        '200':
+          description: Mapa clave-valor
+
+  /api/v1/admin/configuracion:
+    get:
+      tags: [Admin]
+      summary: Toda la configuración
+      security: [{ cookieAuth: [] }]
+      responses:
+        '200':
+          description: Filas completas
+    patch:
+      tags: [Admin]
+      summary: Upsert de items
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                items:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      clave: { type: string }
+                      valor: { type: string }
+                      publica: { type: boolean }
+      responses:
+        '200':
+          description: OK
+
+  /api/v1/menus/{clave}:
+    get:
+      tags: [Navegacion]
+      summary: Menú por clave (árbol)
+      parameters:
+        - name: clave
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Menú con items anidados
+        '404':
+          $ref: '#/components/responses/Error'
+
+  /api/v1/paginas/{slug}:
+    get:
+      tags: [Navegacion]
+      summary: Página publicada con bloques
+      parameters:
+        - $ref: '#/components/parameters/Slug'
+      responses:
+        '200':
+          description: Página
+        '404':
+          $ref: '#/components/responses/Error'
+
+  /api/v1/enlaces:
+    get:
+      tags: [Navegacion]
+      summary: Enlaces externos
+      parameters:
+        - name: grupo
+          in: query
+          schema: { type: string }
+      responses:
+        '200':
+          description: Lista
+
+  /api/v1/noticias:
+    get:
+      tags: [Noticias]
+      summary: Listado público
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Sort'
+        - name: categoria
+          in: query
+          schema: { type: string }
+        - name: curso_academico
+          in: query
+          schema: { type: integer }
+      responses:
+        '200':
+          $ref: '#/components/responses/Paginated'
+
+  /api/v1/noticias/{slug}:
+    get:
+      tags: [Noticias]
+      summary: Detalle público
+      parameters:
+        - $ref: '#/components/parameters/Slug'
+      responses:
+        '200':
+          description: Noticia
+        '404':
+          $ref: '#/components/responses/Error'
+
+  /api/v1/avisos:
+    get:
+      tags: [Avisos]
+      summary: Avisos vigentes
+      parameters:
+        - name: ubicacion
+          in: query
+          schema: { type: string }
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          $ref: '#/components/responses/Paginated'
+
+  /api/v1/avisos/{id}:
+    get:
+      tags: [Avisos]
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Aviso
+        '404':
+          $ref: '#/components/responses/Error'
+
+  /api/v1/ensenanzas:
+    get:
+      tags: [Ensenanzas]
+      parameters:
+        - name: tipo
+          in: query
+          schema: { type: string, enum: [eso, bachillerato, fp, otro] }
+        - name: familia
+          in: query
+          schema: { type: string }
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          $ref: '#/components/responses/Paginated'
+
+  /api/v1/ensenanzas/{slug}:
+    get:
+      tags: [Ensenanzas]
+      parameters:
+        - $ref: '#/components/parameters/Slug'
+      responses:
+        '200':
+          description: Detalle
+        '404':
+          $ref: '#/components/responses/Error'
+
+  /api/v1/ensenanzas/{slug}/modulos:
+    get:
+      tags: [Ensenanzas]
+      parameters:
+        - $ref: '#/components/parameters/Slug'
+      responses:
+        '200':
+          description: Módulos
+
+  /api/v1/ensenanzas/{slug}/documentos:
+    get:
+      tags: [Ensenanzas]
+      parameters:
+        - $ref: '#/components/parameters/Slug'
+      responses:
+        '200':
+          description: Documentos publicados vinculados
+
+  /api/v1/materias-optativas:
+    get:
+      tags: [Optativas]
+      summary: Catálogo de materias
+      responses:
+        '200':
+          description: Lista
+
+  /api/v1/materias-optativas/{slug}:
+    get:
+      tags: [Optativas]
+      parameters:
+        - $ref: '#/components/parameters/Slug'
+      responses:
+        '200':
+          description: Materia + ofertas
+
+  /api/v1/ofertas-optativas:
+    get:
+      tags: [Optativas]
+      summary: Ofertas filtrables
+      parameters:
+        - name: ensenanza_id
+          in: query
+          schema: { type: integer }
+        - name: nivel
+          in: query
+          schema: { type: string }
+        - name: curso_academico
+          in: query
+          schema: { type: integer }
+      responses:
+        '200':
+          description: Lista
+
+  /api/v1/departamentos:
+    get:
+      tags: [Departamentos]
+      responses:
+        '200':
+          description: Lista
+
+  /api/v1/departamentos/{slug}:
+    get:
+      tags: [Departamentos]
+      parameters:
+        - $ref: '#/components/parameters/Slug'
+      responses:
+        '200':
+          description: Detalle
+        '404':
+          $ref: '#/components/responses/Error'
+
+  /api/v1/departamentos/{slug}/profesorado:
+    get:
+      tags: [Departamentos]
+      summary: Personas públicas del departamento (sin PII privada)
+      parameters:
+        - $ref: '#/components/parameters/Slug'
+      responses:
+        '200':
+          description: Lista
+
+  /api/v1/organos:
+    get:
+      tags: [Organizacion]
+      responses:
+        '200':
+          description: Lista de órganos publicados
+
+  /api/v1/organos/{slug}:
+    get:
+      tags: [Organizacion]
+      parameters:
+        - $ref: '#/components/parameters/Slug'
+      responses:
+        '200':
+          description: Órgano con miembros
+
+  /api/v1/personas:
+    get:
+      tags: [Organizacion]
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          $ref: '#/components/responses/Paginated'
+
+  /api/v1/programas:
+    get:
+      tags: [Programas]
+      parameters:
+        - name: categoria
+          in: query
+          schema: { type: string, enum: [educativo, plan_centro, actividad, otro] }
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          $ref: '#/components/responses/Paginated'
+
+  /api/v1/programas/{slug}:
+    get:
+      tags: [Programas]
+      parameters:
+        - $ref: '#/components/parameters/Slug'
+      responses:
+        '200':
+          description: Programa + departamentos
+
+  /api/v1/eventos:
+    get:
+      tags: [Eventos]
+      parameters:
+        - name: desde
+          in: query
+          schema: { type: string, format: date-time }
+        - name: hasta
+          in: query
+          schema: { type: string, format: date-time }
+        - name: tipo
+          in: query
+          schema: { type: string }
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          $ref: '#/components/responses/Paginated'
+
+  /api/v1/eventos/{slug}:
+    get:
+      tags: [Eventos]
+      parameters:
+        - $ref: '#/components/parameters/Slug'
+      responses:
+        '200':
+          description: Detalle
+
+  /api/v1/cursos-academicos:
+    get:
+      tags: [Eventos]
+      responses:
+        '200':
+          description: Lista
+
+  /api/v1/cursos-academicos/{id}:
+    get:
+      tags: [Eventos]
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Detalle
+
+  /api/v1/categorias-documentos:
+    get:
+      tags: [Documentos]
+      responses:
+        '200':
+          description: Categorías
+
+  /api/v1/documentos:
+    get:
+      tags: [Documentos]
+      parameters:
+        - name: categoria
+          in: query
+          schema: { type: string }
+        - name: curso_academico
+          in: query
+          schema: { type: integer }
+        - name: ensenanza_id
+          in: query
+          schema: { type: integer }
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          $ref: '#/components/responses/Paginated'
+
+  /api/v1/documentos/{id}:
+    get:
+      tags: [Documentos]
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Metadatos + url_descarga
+
+  /api/v1/servicios:
+    get:
+      tags: [Servicios]
+      responses:
+        '200':
+          description: Lista
+
+  /api/v1/servicios/{slug}:
+    get:
+      tags: [Servicios]
+      parameters:
+        - $ref: '#/components/parameters/Slug'
+      responses:
+        '200':
+          description: Detalle
+
+  /api/v1/contacto:
+    post:
+      tags: [Contacto]
+      summary: Formulario tipado (consulta, sugerencia, queja, rincon_pensar)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [nombre, email, tipo, mensaje, consentimiento_privacidad]
+              properties:
+                nombre: { type: string, maxLength: 160 }
+                email: { type: string, format: email }
+                tipo: { type: string, enum: [consulta, sugerencia, queja, rincon_pensar] }
+                mensaje: { type: string, maxLength: 5000 }
+                consentimiento_privacidad: { type: boolean }
+      responses:
+        '201':
+          description: Acuse mínimo
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id: { type: integer }
+                  recibido: { type: boolean }
+        '422':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/Error'
+
+  # --- Admin CRUD (patrón común documentado por recurso) ---
+  /api/v1/admin/noticias:
+    get:
+      tags: [Admin]
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+        - name: estado
+          in: query
+          schema: { type: string }
+      responses:
+        '200':
+          $ref: '#/components/responses/Paginated'
+    post:
+      tags: [Admin]
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+      responses:
+        '201':
+          description: Creado
+
+  /api/v1/admin/noticias/{id}:
+    get:
+      tags: [Admin]
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Detalle
+    patch:
+      tags: [Admin]
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - $ref: '#/components/parameters/CsrfHeader'
+      responses:
+        '200':
+          description: OK
+    delete:
+      tags: [Admin]
+      summary: Archiva (estado=archivado)
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - $ref: '#/components/parameters/CsrfHeader'
+      responses:
+        '204':
+          description: Sin contenido
+
+  /api/v1/admin/paginas:
+    get:
+      tags: [Admin]
+      security: [{ cookieAuth: [] }]
+      responses:
+        '200':
+          $ref: '#/components/responses/Paginated'
+    post:
+      tags: [Admin]
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+      responses:
+        '201':
+          description: Creado
+
+  /api/v1/admin/paginas/{id}:
+    get:
+      tags: [Admin]
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Detalle
+    patch:
+      tags: [Admin]
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - $ref: '#/components/parameters/CsrfHeader'
+      responses:
+        '200':
+          description: OK
+    delete:
+      tags: [Admin]
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - $ref: '#/components/parameters/CsrfHeader'
+      responses:
+        '204':
+          description: Archivado
+
+  /api/v1/admin/paginas/{id}/bloques:
+    put:
+      tags: [Admin]
+      summary: Sustituye bloques de la página
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - $ref: '#/components/parameters/CsrfHeader'
+      responses:
+        '200':
+          description: OK
+
+  /api/v1/admin/avisos:
+    get:
+      tags: [Admin]
+      security: [{ cookieAuth: [] }]
+      responses:
+        '200':
+          $ref: '#/components/responses/Paginated'
+    post:
+      tags: [Admin]
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+      responses:
+        '201':
+          description: Creado
+
+  /api/v1/admin/avisos/{id}:
+    get:
+      tags: [Admin]
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Detalle
+    patch:
+      tags: [Admin]
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - $ref: '#/components/parameters/CsrfHeader'
+      responses:
+        '200':
+          description: OK
+    delete:
+      tags: [Admin]
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - $ref: '#/components/parameters/CsrfHeader'
+      responses:
+        '204':
+          description: Archivado
+
+  /api/v1/admin/ensenanzas:
+    get:
+      tags: [Admin]
+      security: [{ cookieAuth: [] }]
+      responses:
+        '200':
+          $ref: '#/components/responses/Paginated'
+    post:
+      tags: [Admin]
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+      responses:
+        '201':
+          description: Creado
+
+  /api/v1/admin/ensenanzas/{id}:
+    get:
+      tags: [Admin]
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Detalle
+    patch:
+      tags: [Admin]
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - $ref: '#/components/parameters/CsrfHeader'
+      responses:
+        '200':
+          description: OK
+    delete:
+      tags: [Admin]
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - $ref: '#/components/parameters/CsrfHeader'
+      responses:
+        '204':
+          description: Archivado
+
+  /api/v1/admin/ensenanzas/{id}/modulos:
+    put:
+      tags: [Admin]
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - $ref: '#/components/parameters/CsrfHeader'
+      responses:
+        '200':
+          description: OK
+
+  /api/v1/admin/eventos:
+    get:
+      tags: [Admin]
+      security: [{ cookieAuth: [] }]
+      responses:
+        '200':
+          $ref: '#/components/responses/Paginated'
+    post:
+      tags: [Admin]
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+      responses:
+        '201':
+          description: Creado
+
+  /api/v1/admin/eventos/{id}:
+    get:
+      tags: [Admin]
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Detalle
+    patch:
+      tags: [Admin]
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - $ref: '#/components/parameters/CsrfHeader'
+      responses:
+        '200':
+          description: OK
+    delete:
+      tags: [Admin]
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - $ref: '#/components/parameters/CsrfHeader'
+      responses:
+        '204':
+          description: Archivado
+
+  /api/v1/admin/programas:
+    get:
+      tags: [Admin]
+      security: [{ cookieAuth: [] }]
+      responses:
+        '200':
+          $ref: '#/components/responses/Paginated'
+    post:
+      tags: [Admin]
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+      responses:
+        '201':
+          description: Creado
+
+  /api/v1/admin/programas/{id}:
+    get:
+      tags: [Admin]
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Detalle
+    patch:
+      tags: [Admin]
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - $ref: '#/components/parameters/CsrfHeader'
+      responses:
+        '200':
+          description: OK
+    delete:
+      tags: [Admin]
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - $ref: '#/components/parameters/CsrfHeader'
+      responses:
+        '204':
+          description: Archivado
+
+  /api/v1/admin/programas/{id}/departamentos:
+    put:
+      tags: [Admin]
+      summary: Sincroniza N:M programa-departamento
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - $ref: '#/components/parameters/CsrfHeader'
+      responses:
+        '200':
+          description: OK
+
+  /api/v1/admin/departamentos:
+    get:
+      tags: [Admin]
+      security: [{ cookieAuth: [] }]
+      responses:
+        '200':
+          $ref: '#/components/responses/Paginated'
+    post:
+      tags: [Admin]
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+      responses:
+        '201':
+          description: Creado
+
+  /api/v1/admin/departamentos/{id}:
+    get:
+      tags: [Admin]
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Detalle
+    patch:
+      tags: [Admin]
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - $ref: '#/components/parameters/CsrfHeader'
+      responses:
+        '200':
+          description: OK
+    delete:
+      tags: [Admin]
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - $ref: '#/components/parameters/CsrfHeader'
+      responses:
+        '204':
+          description: Archivado
+
+  /api/v1/admin/servicios:
+    get:
+      tags: [Admin]
+      security: [{ cookieAuth: [] }]
+      responses:
+        '200':
+          $ref: '#/components/responses/Paginated'
+    post:
+      tags: [Admin]
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+      responses:
+        '201':
+          description: Creado
+
+  /api/v1/admin/servicios/{id}:
+    get:
+      tags: [Admin]
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Detalle
+    patch:
+      tags: [Admin]
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - $ref: '#/components/parameters/CsrfHeader'
+      responses:
+        '200':
+          description: OK
+    delete:
+      tags: [Admin]
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - $ref: '#/components/parameters/CsrfHeader'
+      responses:
+        '204':
+          description: Archivado
+
+  /api/v1/admin/menus:
+    get:
+      tags: [Admin]
+      security: [{ cookieAuth: [] }]
+      responses:
+        '200':
+          description: Lista
+    post:
+      tags: [Admin]
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+      responses:
+        '201':
+          description: Creado
+
+  /api/v1/admin/menus/{id}/items:
+    put:
+      tags: [Admin]
+      summary: Sustituye árbol de ítems
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - $ref: '#/components/parameters/CsrfHeader'
+      responses:
+        '200':
+          description: OK
+
+  /api/v1/admin/enlaces:
+    get:
+      tags: [Admin]
+      security: [{ cookieAuth: [] }]
+      responses:
+        '200':
+          description: Lista
+    post:
+      tags: [Admin]
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+      responses:
+        '201':
+          description: Creado
+
+  /api/v1/admin/enlaces/{id}:
+    patch:
+      tags: [Admin]
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - $ref: '#/components/parameters/CsrfHeader'
+      responses:
+        '200':
+          description: OK
+    delete:
+      tags: [Admin]
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - $ref: '#/components/parameters/CsrfHeader'
+      responses:
+        '204':
+          description: Eliminado
+
+  /api/v1/admin/cursos-academicos:
+    get:
+      tags: [Admin]
+      security: [{ cookieAuth: [] }]
+      responses:
+        '200':
+          description: Lista
+    post:
+      tags: [Admin]
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+      responses:
+        '201':
+          description: Creado
+
+  /api/v1/admin/cursos-academicos/{id}:
+    patch:
+      tags: [Admin]
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - $ref: '#/components/parameters/CsrfHeader'
+      responses:
+        '200':
+          description: OK
+
+  /api/v1/admin/materias-optativas:
+    get:
+      tags: [Admin]
+      security: [{ cookieAuth: [] }]
+      responses:
+        '200':
+          description: Lista
+    post:
+      tags: [Admin]
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+      responses:
+        '201':
+          description: Creado
+
+  /api/v1/admin/materias-optativas/{id}:
+    patch:
+      tags: [Admin]
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - $ref: '#/components/parameters/CsrfHeader'
+      responses:
+        '200':
+          description: OK
+
+  /api/v1/admin/ofertas-optativas:
+    get:
+      tags: [Admin]
+      security: [{ cookieAuth: [] }]
+      responses:
+        '200':
+          $ref: '#/components/responses/Paginated'
+    post:
+      tags: [Admin]
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+      responses:
+        '201':
+          description: Creado
+
+  /api/v1/admin/ofertas-optativas/{id}:
+    patch:
+      tags: [Admin]
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - $ref: '#/components/parameters/CsrfHeader'
+      responses:
+        '200':
+          description: OK
+    delete:
+      tags: [Admin]
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - $ref: '#/components/parameters/CsrfHeader'
+      responses:
+        '204':
+          description: Eliminado
+
+  /api/v1/admin/personas:
+    get:
+      tags: [Admin]
+      security: [{ cookieAuth: [] }]
+      responses:
+        '200':
+          description: Lista
+    post:
+      tags: [Admin]
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+      responses:
+        '201':
+          description: Creado
+
+  /api/v1/admin/personas/{id}:
+    patch:
+      tags: [Admin]
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - $ref: '#/components/parameters/CsrfHeader'
+      responses:
+        '200':
+          description: OK
+    delete:
+      tags: [Admin]
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - $ref: '#/components/parameters/CsrfHeader'
+      responses:
+        '204':
+          description: Eliminado
+
+  /api/v1/admin/personas/{id}/departamentos:
+    put:
+      tags: [Admin]
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - $ref: '#/components/parameters/CsrfHeader'
+      responses:
+        '200':
+          description: OK
+
+  /api/v1/admin/organos:
+    get:
+      tags: [Admin]
+      security: [{ cookieAuth: [] }]
+      responses:
+        '200':
+          description: Lista
+    post:
+      tags: [Admin]
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+      responses:
+        '201':
+          description: Creado
+
+  /api/v1/admin/organos/{id}:
+    patch:
+      tags: [Admin]
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - $ref: '#/components/parameters/CsrfHeader'
+      responses:
+        '200':
+          description: OK
+    delete:
+      tags: [Admin]
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - $ref: '#/components/parameters/CsrfHeader'
+      responses:
+        '204':
+          description: Archivado
+
+  /api/v1/admin/organos/{id}/miembros:
+    put:
+      tags: [Admin]
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - $ref: '#/components/parameters/CsrfHeader'
+      responses:
+        '200':
+          description: OK
+
+  /api/v1/admin/categorias-documentos:
+    get:
+      tags: [Admin]
+      security: [{ cookieAuth: [] }]
+      responses:
+        '200':
+          description: Lista
+    post:
+      tags: [Admin]
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+      responses:
+        '201':
+          description: Creado
+
+  /api/v1/admin/categorias-documentos/{id}:
+    patch:
+      tags: [Admin]
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - $ref: '#/components/parameters/CsrfHeader'
+      responses:
+        '200':
+          description: OK
+
+  /api/v1/admin/documentos:
+    get:
+      tags: [Admin]
+      security: [{ cookieAuth: [] }]
+      responses:
+        '200':
+          $ref: '#/components/responses/Paginated'
+    post:
+      tags: [Admin]
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+      responses:
+        '201':
+          description: Creado
+
+  /api/v1/admin/documentos/{id}:
+    patch:
+      tags: [Admin]
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - $ref: '#/components/parameters/CsrfHeader'
+      responses:
+        '200':
+          description: OK
+    delete:
+      tags: [Admin]
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - $ref: '#/components/parameters/CsrfHeader'
+      responses:
+        '204':
+          description: Archivado
+
+  /api/v1/admin/archivos:
+    get:
+      tags: [Admin]
+      security: [{ cookieAuth: [] }]
+      responses:
+        '200':
+          $ref: '#/components/responses/Paginated'
+    post:
+      tags: [Admin]
+      summary: Subida multipart campo file
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file: { type: string, format: binary }
+                descripcion_es: { type: string }
+                texto_alt_es: { type: string }
+      responses:
+        '201':
+          description: Creado
+        '422':
+          $ref: '#/components/responses/Error'
+
+  /api/v1/admin/archivos/{id}:
+    patch:
+      tags: [Admin]
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - $ref: '#/components/parameters/CsrfHeader'
+      responses:
+        '200':
+          description: OK
+    delete:
+      tags: [Admin]
+      summary: 409 si está en uso
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - $ref: '#/components/parameters/CsrfHeader'
+      responses:
+        '204':
+          description: Eliminado
+        '409':
+          $ref: '#/components/responses/Error'
+
+  /api/v1/admin/contactos:
+    get:
+      tags: [Admin]
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - name: estado
+          in: query
+          schema: { type: string, enum: [pendiente, en_curso, finalizado] }
+        - name: tipo
+          in: query
+          schema: { type: string }
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          $ref: '#/components/responses/Paginated'
+
+  /api/v1/admin/contactos/{id}:
+    patch:
+      tags: [Admin]
+      summary: Solo cambio de estado
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [estado]
+              properties:
+                estado: { type: string, enum: [pendiente, en_curso, finalizado] }
+      responses:
+        '200':
+          description: OK
+
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: ies_web_session
+  parameters:
+    Id:
+      name: id
+      in: path
+      required: true
+      schema: { type: integer }
+    Slug:
+      name: slug
+      in: path
+      required: true
+      schema: { type: string }
+    Page:
+      name: page
+      in: query
+      schema: { type: integer, minimum: 1, default: 1 }
+    Limit:
+      name: limit
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 50, default: 12 }
+    Sort:
+      name: sort
+      in: query
+      schema: { type: string }
+    CsrfHeader:
+      name: X-CSRF-Token
+      in: header
+      required: true
+      schema: { type: string }
+  schemas:
+    Health:
+      type: object
+      properties:
+        status: { type: string }
+        db: { type: string }
+    ErrorBody:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code: { type: string }
+            message: { type: string }
+            fields:
+              type: object
+              additionalProperties: { type: string }
+  responses:
+    Error:
+      description: Error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorBody'
+    Paginated:
+      description: Colección paginada
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data:
+                type: array
+                items: { type: object }
+              meta:
+                type: object
+                properties:
+                  page: { type: integer }
+                  limit: { type: integer }
+                  total: { type: integer }

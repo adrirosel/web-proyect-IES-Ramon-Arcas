@@ -1,0 +1,44 @@
+# Entorno de desarrollo: API PHP + Nginx (same-origin) + MariaDB 11.4 LTS
+services:
+  nginx:
+    image: nginx:1.27-alpine
+    ports:
+      - "8088:80"
+    volumes:
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./api/public:/var/www/api/public:ro
+      - ./api/storage:/var/www/api/storage:ro
+    depends_on:
+      - php
+      - mariadb
+
+  php:
+    build:
+      context: ./docker/php
+    volumes:
+      - ./api:/var/www/api
+    env_file:
+      - .env
+    depends_on:
+      mariadb:
+        condition: service_healthy
+
+  mariadb:
+    image: mariadb:11.4
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-root_secret}
+      MYSQL_DATABASE: ${DB_NAME:-ies_web}
+      MYSQL_USER: ${DB_USER:-ies_web}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-ies_web_secret}
+    ports:
+      - "3307:3306"
+    volumes:
+      - mariadb_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  mariadb_data:
