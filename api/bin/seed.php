@@ -73,11 +73,29 @@ $pdo->exec("INSERT IGNORE INTO categorias_documentos (id, slug, nombre_es, nombr
     (3, 'horarios', 'Horarios', 'Timetables', 3),
     (4, 'secretaria', 'Secretaria', 'Secretary', 4)");
 
-// Pagina y noticia de ejemplo publicadas
+// Pagina y noticia de ejemplo publicadas (antes del menú: menu_items.pagina_id FK)
 $pdo->exec("INSERT IGNORE INTO paginas (id, slug, titulo_es, titulo_en, estado, publicado_en)
             VALUES (1, 'quienes-somos', 'Quienes somos', 'About us', 'publicado', UTC_TIMESTAMP())");
 $pdo->exec("INSERT IGNORE INTO pagina_bloques (id, pagina_id, tipo, contenido_json, orden)
             VALUES (1, 1, 'texto', '{\"markdown_es\":\"Centro educativo en Totana.\",\"markdown_en\":\"School in Totana.\"}', 0)");
+
+// Mapa de secciones de la memoria (§6.2) como árbol demostrable sin front.
+// «Acceso intranet» deja url vacía: el front resuelve configuracion.intranet_url.
+$pdo->exec("INSERT IGNORE INTO menu_items (id, menu_id, padre_id, titulo_es, titulo_en, url, pagina_id, orden) VALUES
+    (1, 1, NULL, 'Inicio', 'Home', '/', NULL, 1),
+    (2, 1, NULL, 'Organizacion', 'Organisation', '/organizacion', NULL, 2),
+    (3, 1, 2, 'Quienes somos', 'About us', NULL, 1, 1),
+    (4, 1, 2, 'Equipo directivo', 'Management team', '/organizacion/equipo-directivo', NULL, 2),
+    (5, 1, 2, 'Departamentos', 'Departments', '/organizacion/departamentos', NULL, 3),
+    (6, 1, NULL, 'Familias', 'Families', '/familias', NULL, 3),
+    (7, 1, 6, 'Documentos', 'Documents', '/familias/documentos', NULL, 1),
+    (8, 1, 6, 'Enlaces', 'Links', '/familias/enlaces', NULL, 2),
+    (9, 1, NULL, 'Ensenanzas', 'Studies', '/ensenanzas', NULL, 4),
+    (10, 1, NULL, 'Programas', 'Programmes', '/programas', NULL, 5),
+    (11, 1, NULL, 'Secretaria', 'Secretary', '/secretaria', NULL, 6),
+    (12, 1, NULL, 'Noticias', 'News', '/noticias', NULL, 7),
+    (13, 1, NULL, 'Contacto', 'Contact', '/contacto', NULL, 8),
+    (14, 2, NULL, 'Acceso intranet', 'Intranet access', NULL, NULL, 1)");
 
 $pdo->exec("INSERT IGNORE INTO noticias (id, slug, titulo_es, titulo_en, resumen_es, cuerpo_es, categoria, estado, publicado_en, curso_academico_id)
             VALUES (1, 'bienvenida-curso', 'Bienvenida al curso', 'Welcome to the school year',

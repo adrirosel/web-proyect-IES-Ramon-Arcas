@@ -190,6 +190,10 @@ paths:
       responses:
         '200':
           description: Mapa clave-valor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfiguracionPublica'
 
   /api/v1/admin/configuracion:
     get:
@@ -199,6 +203,15 @@ paths:
       responses:
         '200':
           description: Filas completas
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ConfiguracionItem'
     patch:
       tags: [Admin]
       summary: Upsert de items
@@ -206,19 +219,11 @@ paths:
       parameters:
         - $ref: '#/components/parameters/CsrfHeader'
       requestBody:
+        required: true
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                items:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      clave: { type: string }
-                      valor: { type: string }
-                      publica: { type: boolean }
+              $ref: '#/components/schemas/ConfiguracionUpsert'
       responses:
         '200':
           description: OK
@@ -247,6 +252,13 @@ paths:
       responses:
         '200':
           description: Página
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Pagina'
         '404':
           $ref: '#/components/responses/Error'
 
@@ -289,6 +301,13 @@ paths:
       responses:
         '200':
           description: Noticia
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Noticia'
         '404':
           $ref: '#/components/responses/Error'
 
@@ -472,6 +491,15 @@ paths:
       responses:
         '200':
           description: Programa + departamentos
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Programa'
+        '404':
+          $ref: '#/components/responses/Error'
 
   /api/v1/eventos:
     get:
@@ -551,6 +579,15 @@ paths:
       responses:
         '200':
           description: Metadatos + url_descarga
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Documento'
+        '404':
+          $ref: '#/components/responses/Error'
 
   /api/v1/servicios:
     get:
@@ -577,24 +614,14 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              required: [nombre, email, tipo, mensaje, consentimiento_privacidad]
-              properties:
-                nombre: { type: string, maxLength: 160 }
-                email: { type: string, format: email }
-                tipo: { type: string, enum: [consulta, sugerencia, queja, rincon_pensar] }
-                mensaje: { type: string, maxLength: 5000 }
-                consentimiento_privacidad: { type: boolean }
+              $ref: '#/components/schemas/ContactoCreate'
       responses:
         '201':
           description: Acuse mínimo
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  id: { type: integer }
-                  recibido: { type: boolean }
+                $ref: '#/components/schemas/ContactoRecibo'
         '422':
           $ref: '#/components/responses/Error'
         '429':
@@ -619,9 +646,21 @@ paths:
       security: [{ cookieAuth: [] }]
       parameters:
         - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NoticiaWrite'
       responses:
         '201':
           description: Creado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id: { type: integer }
 
   /api/v1/admin/noticias/{id}:
     get:
@@ -632,12 +671,25 @@ paths:
       responses:
         '200':
           description: Detalle
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Noticia'
     patch:
       tags: [Admin]
       security: [{ cookieAuth: [] }]
       parameters:
         - $ref: '#/components/parameters/Id'
         - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NoticiaWrite'
       responses:
         '200':
           description: OK
@@ -664,9 +716,21 @@ paths:
       security: [{ cookieAuth: [] }]
       parameters:
         - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaginaWrite'
       responses:
         '201':
           description: Creado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id: { type: integer }
 
   /api/v1/admin/paginas/{id}:
     get:
@@ -677,12 +741,25 @@ paths:
       responses:
         '200':
           description: Detalle
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Pagina'
     patch:
       tags: [Admin]
       security: [{ cookieAuth: [] }]
       parameters:
         - $ref: '#/components/parameters/Id'
         - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaginaWrite'
       responses:
         '200':
           description: OK
@@ -704,6 +781,12 @@ paths:
       parameters:
         - $ref: '#/components/parameters/Id'
         - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaginaBloquesPut'
       responses:
         '200':
           description: OK
@@ -863,9 +946,21 @@ paths:
       security: [{ cookieAuth: [] }]
       parameters:
         - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProgramaWrite'
       responses:
         '201':
           description: Creado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id: { type: integer }
 
   /api/v1/admin/programas/{id}:
     get:
@@ -876,12 +971,25 @@ paths:
       responses:
         '200':
           description: Detalle
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Programa'
     patch:
       tags: [Admin]
       security: [{ cookieAuth: [] }]
       parameters:
         - $ref: '#/components/parameters/Id'
         - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProgramaWrite'
       responses:
         '200':
           description: OK
@@ -1282,9 +1390,21 @@ paths:
       security: [{ cookieAuth: [] }]
       parameters:
         - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DocumentoWrite'
       responses:
         '201':
           description: Creado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id: { type: integer }
 
   /api/v1/admin/documentos/{id}:
     patch:
@@ -1293,6 +1413,12 @@ paths:
       parameters:
         - $ref: '#/components/parameters/Id'
         - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DocumentoWrite'
       responses:
         '200':
           description: OK
@@ -1383,16 +1509,20 @@ paths:
         - $ref: '#/components/parameters/Id'
         - $ref: '#/components/parameters/CsrfHeader'
       requestBody:
+        required: true
         content:
           application/json:
             schema:
-              type: object
-              required: [estado]
-              properties:
-                estado: { type: string, enum: [pendiente, en_curso, finalizado] }
+              $ref: '#/components/schemas/ContactoEstadoPatch'
       responses:
         '200':
           description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
 
 components:
   securitySchemes:
@@ -1445,6 +1575,210 @@ components:
             fields:
               type: object
               additionalProperties: { type: string }
+    EstadoEditorial:
+      type: string
+      enum: [borrador, publicado, archivado]
+    Noticia:
+      type: object
+      properties:
+        id: { type: integer }
+        slug: { type: string }
+        slug_en: { type: string, nullable: true }
+        titulo_es: { type: string }
+        titulo_en: { type: string, nullable: true }
+        resumen_es: { type: string, nullable: true }
+        resumen_en: { type: string, nullable: true }
+        cuerpo_es: { type: string }
+        cuerpo_en: { type: string, nullable: true }
+        categoria: { type: string, nullable: true }
+        imagen_id: { type: integer, nullable: true }
+        estado: { $ref: '#/components/schemas/EstadoEditorial' }
+        publicado_en: { type: string, format: date-time, nullable: true }
+        destacado: { type: boolean }
+        curso_academico_id: { type: integer, nullable: true }
+    NoticiaWrite:
+      type: object
+      properties:
+        slug: { type: string }
+        slug_en: { type: string }
+        titulo_es: { type: string }
+        titulo_en: { type: string }
+        resumen_es: { type: string }
+        resumen_en: { type: string }
+        cuerpo_es: { type: string }
+        cuerpo_en: { type: string }
+        categoria: { type: string }
+        imagen_id: { type: integer, nullable: true }
+        estado: { $ref: '#/components/schemas/EstadoEditorial' }
+        publicado_en: { type: string, format: date-time, nullable: true }
+        destacado: { type: boolean }
+        curso_academico_id: { type: integer, nullable: true }
+    PaginaBloque:
+      type: object
+      properties:
+        id: { type: integer }
+        tipo: { type: string, enum: [texto, imagen, documentos, enlaces] }
+        contenido: { type: object, additionalProperties: true }
+        orden: { type: integer }
+    Pagina:
+      type: object
+      properties:
+        id: { type: integer }
+        slug: { type: string }
+        slug_en: { type: string, nullable: true }
+        titulo_es: { type: string }
+        titulo_en: { type: string, nullable: true }
+        estado: { $ref: '#/components/schemas/EstadoEditorial' }
+        publicado_en: { type: string, format: date-time, nullable: true }
+        bloques:
+          type: array
+          items: { $ref: '#/components/schemas/PaginaBloque' }
+    PaginaWrite:
+      type: object
+      properties:
+        slug: { type: string }
+        slug_en: { type: string }
+        titulo_es: { type: string }
+        titulo_en: { type: string }
+        estado: { $ref: '#/components/schemas/EstadoEditorial' }
+        publicado_en: { type: string, format: date-time, nullable: true }
+    PaginaBloquesPut:
+      type: object
+      required: [bloques]
+      properties:
+        bloques:
+          type: array
+          items:
+            type: object
+            required: [tipo]
+            properties:
+              tipo: { type: string, enum: [texto, imagen, documentos, enlaces] }
+              contenido: { type: object, additionalProperties: true }
+              orden: { type: integer }
+    Documento:
+      type: object
+      properties:
+        id: { type: integer }
+        titulo_es: { type: string }
+        titulo_en: { type: string, nullable: true }
+        descripcion_es: { type: string, nullable: true }
+        descripcion_en: { type: string, nullable: true }
+        categoria_id: { type: integer }
+        categoria_slug: { type: string }
+        curso_academico_id: { type: integer, nullable: true }
+        ensenanza_id: { type: integer, nullable: true }
+        archivo_id: { type: integer }
+        estado: { $ref: '#/components/schemas/EstadoEditorial' }
+        publicado_en: { type: string, format: date-time, nullable: true }
+        url_descarga: { type: string }
+    DocumentoWrite:
+      type: object
+      properties:
+        titulo_es: { type: string }
+        titulo_en: { type: string }
+        descripcion_es: { type: string }
+        descripcion_en: { type: string }
+        categoria_id: { type: integer }
+        curso_academico_id: { type: integer, nullable: true }
+        ensenanza_id: { type: integer, nullable: true }
+        archivo_id: { type: integer }
+        estado: { $ref: '#/components/schemas/EstadoEditorial' }
+        publicado_en: { type: string, format: date-time, nullable: true }
+    Programa:
+      type: object
+      properties:
+        id: { type: integer }
+        slug: { type: string }
+        slug_en: { type: string, nullable: true }
+        categoria: { type: string, enum: [educativo, plan_centro, actividad, otro] }
+        titulo_es: { type: string }
+        titulo_en: { type: string, nullable: true }
+        descripcion_es: { type: string, nullable: true }
+        descripcion_en: { type: string, nullable: true }
+        documento_id: { type: integer, nullable: true }
+        imagen_id: { type: integer, nullable: true }
+        estado: { $ref: '#/components/schemas/EstadoEditorial' }
+        publicado_en: { type: string, format: date-time, nullable: true }
+        orden: { type: integer }
+        departamentos:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: integer }
+              slug: { type: string }
+              nombre_es: { type: string }
+              nombre_en: { type: string, nullable: true }
+    ProgramaWrite:
+      type: object
+      properties:
+        slug: { type: string }
+        slug_en: { type: string }
+        categoria: { type: string, enum: [educativo, plan_centro, actividad, otro] }
+        titulo_es: { type: string }
+        titulo_en: { type: string }
+        descripcion_es: { type: string }
+        descripcion_en: { type: string }
+        documento_id: { type: integer, nullable: true }
+        imagen_id: { type: integer, nullable: true }
+        estado: { $ref: '#/components/schemas/EstadoEditorial' }
+        publicado_en: { type: string, format: date-time, nullable: true }
+        orden: { type: integer }
+    ConfiguracionPublica:
+      type: object
+      additionalProperties: { type: string }
+      description: Mapa clave→valor (p. ej. nombre_centro, intranet_url)
+    ConfiguracionItem:
+      type: object
+      properties:
+        clave: { type: string }
+        valor: { type: string }
+        publica: { type: boolean }
+        updated_at: { type: string, format: date-time }
+    ConfiguracionUpsert:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            required: [clave, valor]
+            properties:
+              clave: { type: string }
+              valor: { type: string }
+              publica: { type: boolean }
+    ContactoCreate:
+      type: object
+      required: [nombre, email, tipo, mensaje, consentimiento_privacidad]
+      properties:
+        nombre: { type: string, maxLength: 160 }
+        email: { type: string, format: email }
+        tipo: { type: string, enum: [consulta, sugerencia, queja, rincon_pensar] }
+        mensaje: { type: string, maxLength: 5000 }
+        consentimiento_privacidad: { type: boolean }
+    ContactoRecibo:
+      type: object
+      properties:
+        id: { type: integer }
+        recibido: { type: boolean }
+    Contacto:
+      type: object
+      properties:
+        id: { type: integer }
+        nombre: { type: string }
+        email: { type: string }
+        tipo: { type: string, enum: [consulta, sugerencia, queja, rincon_pensar] }
+        mensaje: { type: string }
+        consentimiento_privacidad: { type: boolean }
+        estado: { type: string, enum: [pendiente, en_curso, finalizado] }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    ContactoEstadoPatch:
+      type: object
+      required: [estado]
+      properties:
+        estado: { type: string, enum: [pendiente, en_curso, finalizado] }
   responses:
     Error:
       description: Error
