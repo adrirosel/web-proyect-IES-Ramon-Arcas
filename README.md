@@ -127,7 +127,7 @@ docker compose exec php vendor/bin/phpunit
 
 Repositorio: [adrirosel/web-proyect-IES-Ramon-Arcas](https://github.com/adrirosel/web-proyect-IES-Ramon-Arcas).
 
-- Cada implementación se desarrolla en una rama `Adrian-<nombre-de-la-implementacion>`.
+- Cada implementación se desarrolla en una rama `<nombre-integrante>-<nombre-de-la-implementacion>`.
 - Los conflictos se resuelven en esa rama.
 - Solo se integra en `main` cuando el trabajo de la rama está terminado.
 
